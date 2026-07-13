@@ -5,6 +5,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
+	"strconv"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -59,14 +62,18 @@ func (u *ui) build() fyne.CanvasObject {
 	name := widget.NewEntry()
 	name.SetPlaceHolder("name")
 	local := widget.NewEntry()
-	local.SetPlaceHolder("127.0.0.1:8080")
+	local.SetPlaceHolder("8080")
 	remote := widget.NewEntry()
-	remote.SetPlaceHolder("localhost:3000")
+	remote.SetPlaceHolder("3000")
 	add := widget.NewButton("Add forward", func() {
-		if local.Text == "" || remote.Text == "" {
+		// Accept a bare port ("8080") or a full host:port; a bare port gets the
+		// default host, so entering an IP is optional.
+		localAddr := withDefaultHost(local.Text, "127.0.0.1")
+		remoteAddr := withDefaultHost(remote.Text, "localhost")
+		if localAddr == "" || remoteAddr == "" {
 			return
 		}
-		r := forwarder.Rule{Name: name.Text, LocalAddr: local.Text, RemoteAddr: remote.Text, Enabled: true}
+		r := forwarder.Rule{Name: name.Text, LocalAddr: localAddr, RemoteAddr: remoteAddr, Enabled: true}
 		u.profile.Rules = append(u.profile.Rules, r)
 		if u.mgr != nil {
 			u.mgr.UpsertRule(r)
@@ -202,4 +209,19 @@ func (u *ui) passphrase(keyPath string) (string, error) {
 		return "", fmt.Errorf("cancelled")
 	}
 	return r.text, nil
+}
+
+// withDefaultHost lets the user type just a port. A bare numeric port is
+// expanded to defaultHost:port; anything already carrying a host (":8080",
+// "127.0.0.1:8080", "[::1]:5173") is returned unchanged so IPv6 and non-loopback
+// targets still work. Empty input stays empty.
+func withDefaultHost(input, defaultHost string) string {
+	s := strings.TrimSpace(input)
+	if s == "" {
+		return ""
+	}
+	if _, err := strconv.Atoi(s); err == nil {
+		return net.JoinHostPort(defaultHost, s)
+	}
+	return s
 }

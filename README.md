@@ -85,6 +85,9 @@ The GUI writes it for you; the CLI reads it.
   `"user"`, `"port"`, `"identity_files": [...]`, `"known_hosts"`.
 - `local_addr` binds on the host; use `0.0.0.0:PORT` to expose on the LAN (mind the firewall).
 - `remote_addr` is resolved on the remote; use `[::1]:PORT` for an IPv6-only remote service.
+- In the GUI you can type just a port: a bare `8080` becomes `127.0.0.1:8080` (local) or
+  `localhost:8080` (remote). Enter a full `host:port` when you need a specific host,
+  `[::1]:PORT`, or `0.0.0.0:PORT`.
 
 ## Notes / next steps
 
