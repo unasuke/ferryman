@@ -77,8 +77,15 @@ func (u *ui) build() fyne.CanvasObject {
 		local.SetText("")
 		remote.SetText("")
 	})
+	// Column headers so the three inputs read as name / local / remote.
+	header := container.NewGridWithColumns(3,
+		widget.NewLabelWithStyle("Name", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Local", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Remote", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+	)
 	form := container.NewVBox(
 		widget.NewSeparator(),
+		header,
 		container.NewGridWithColumns(3, name, local, remote),
 		add,
 	)
@@ -106,7 +113,7 @@ func (u *ui) rebuildRules() {
 			u.save()
 		}
 
-		lbl := widget.NewLabel(fmt.Sprintf("%s   %s → %s", r.Name, r.LocalAddr, r.RemoteAddr))
+		lbl := widget.NewLabel(fmt.Sprintf("%s   local %s  →  remote %s", r.Name, r.LocalAddr, r.RemoteAddr))
 
 		del := widget.NewButton("✕", func() {
 			local := u.profile.Rules[i].LocalAddr
