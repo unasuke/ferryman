@@ -1,6 +1,8 @@
 # Build artifacts
 /ferryman
 /ferryman.exe
+/ferryman-cli
+/ferryman-cli.exe
 /ferryman-gui
 /ferryman-gui.exe
 *.exe

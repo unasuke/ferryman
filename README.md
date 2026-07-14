@@ -33,8 +33,8 @@ crossing, `local_addr → remote_addr`.
       agent_unix.go       agent via SSH_AUTH_SOCK        (build tag: !windows)
       agent_windows.go    agent via \\.\pipe\openssh-ssh-agent (build tag: windows)
       store.go            config.json load/save
-    cmd/ferryman/       headless CLI front-end (cgo-free)
-    cmd/ferryman-gui/   Fyne GUI front-end (needs a C toolchain; Fyne v2.6+)
+    cmd/ferryman/       Fyne GUI front-end (needs a C toolchain; Fyne v2.6+)
+    cmd/ferryman-cli/   headless CLI front-end (cgo-free)
 
 ## Build
 
@@ -42,29 +42,30 @@ First fetch deps:
 
     go mod tidy
 
-CLI (cgo-free, cross-compiles trivially):
+GUI — the primary binary `ferryman` (Fyne needs cgo + a C toolchain + OpenGL —
+build it natively on each OS):
 
     go build -o ferryman ./cmd/ferryman
-    GOOS=windows GOARCH=amd64 go build -o ferryman.exe ./cmd/ferryman
-    GOOS=darwin  GOARCH=arm64 go build -o ferryman     ./cmd/ferryman
-
-GUI (Fyne needs cgo + a C toolchain + OpenGL — build it natively on each OS):
-
-    go build -o ferryman-gui ./cmd/ferryman-gui
     # or, for a proper .app / .exe bundle:
     go install fyne.io/fyne/v2/cmd/fyne@latest
-    fyne package --src ./cmd/ferryman-gui
+    fyne package --src ./cmd/ferryman
 
 macOS needs the Xcode command-line tools; Windows needs a gcc (e.g. MSYS2/mingw-w64).
 
 On Windows a plain `go build` produces a console-subsystem binary, so an extra
-command-prompt window opens alongside the GUI. Build with the `windowsgui`
-subsystem to suppress it:
+command-prompt window opens alongside the GUI. Build `ferryman.exe` with the
+`windowsgui` subsystem to suppress it:
 
-    go build -ldflags "-H windowsgui" -o ferryman-gui.exe ./cmd/ferryman-gui
+    go build -ldflags "-H windowsgui" -o ferryman.exe ./cmd/ferryman
 
 `fyne package` already targets the GUI subsystem, so this flag is only needed
 for a bare `go build` on Windows.
+
+CLI — `ferryman-cli` (cgo-free, cross-compiles trivially):
+
+    go build -o ferryman-cli ./cmd/ferryman-cli
+    GOOS=windows GOARCH=amd64 go build -o ferryman-cli.exe ./cmd/ferryman-cli
+    GOOS=darwin  GOARCH=arm64 go build -o ferryman-cli     ./cmd/ferryman-cli
 
 ## Config
 
@@ -93,7 +94,7 @@ The GUI writes it for you; the CLI reads it.
 
     go test ./forwarder/          # engine tests (cgo-free, run everywhere)
     go test -race ./forwarder/    # recommended, but needs cgo + a C toolchain
-    go test ./cmd/ferryman-gui/   # GUI helper tests; needs gcc (cgo)
+    go test ./cmd/ferryman/       # GUI helper tests; needs gcc (cgo)
 
 The `forwarder` tests are self-contained: the end-to-end test stands up an
 in-process SSH server and bridges a `direct-tcpip` channel to a local echo
