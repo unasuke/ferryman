@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -128,7 +129,20 @@ func (u *ui) rebuildRules() {
 			u.save()
 		}
 
-		lbl := widget.NewLabel(fmt.Sprintf("%s   local %s  →  remote %s", r.Name, r.LocalAddr, r.RemoteAddr))
+		// Render the local address as a clickable link (opens http://LocalAddr in
+		// the browser); fall back to a plain label if the address will not parse.
+		var localWidget fyne.CanvasObject
+		if link := localURL(r.LocalAddr); link != nil {
+			localWidget = widget.NewHyperlink(r.LocalAddr, link)
+		} else {
+			localWidget = widget.NewLabel(r.LocalAddr)
+		}
+		row := container.NewHBox(
+			widget.NewLabel(r.Name),
+			widget.NewLabel("local"),
+			localWidget,
+			widget.NewLabel(fmt.Sprintf("→  remote %s", r.RemoteAddr)),
+		)
 
 		del := widget.NewButton("✕", func() {
 			local := u.profile.Rules[i].LocalAddr
@@ -140,7 +154,7 @@ func (u *ui) rebuildRules() {
 			u.rebuildRules()
 		})
 
-		u.rulesBox.Add(container.NewBorder(nil, nil, chk, del, lbl))
+		u.rulesBox.Add(container.NewBorder(nil, nil, chk, del, row))
 	}
 	u.rulesBox.Refresh()
 }
@@ -350,6 +364,24 @@ func suggestedRule(s forwarder.Suggestion, free func(localAddr string) bool) for
 		}
 	}
 	return forwarder.Rule{Name: s.Process, LocalAddr: local, RemoteAddr: remote, Enabled: true}
+}
+
+// localURL turns a rule's local bind address into a browsable http URL so the
+// address can be shown as a clickable link. A wildcard or empty host (0.0.0.0,
+// ::, or "") is rewritten to 127.0.0.1, since those are bind addresses a browser
+// cannot open. Anything else (a concrete IP or hostname) is kept as-is. Returns
+// nil when the address has no host:port to parse, so the caller falls back to a
+// plain label.
+func localURL(localAddr string) *url.URL {
+	host, port, err := net.SplitHostPort(localAddr)
+	if err != nil {
+		return nil
+	}
+	switch host {
+	case "", "0.0.0.0", "::":
+		host = "127.0.0.1"
+	}
+	return &url.URL{Scheme: "http", Host: net.JoinHostPort(host, port)}
 }
 
 // localAddrAvailable reports whether addr can be bound right now, so a suggested

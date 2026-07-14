@@ -31,6 +31,37 @@ func TestWithDefaultHost(t *testing.T) {
 	}
 }
 
+func TestLocalURL(t *testing.T) {
+	cases := []struct {
+		name string
+		addr string
+		want string // empty means expect a nil URL
+	}{
+		{"loopback", "127.0.0.1:8080", "http://127.0.0.1:8080"},
+		{"hostname", "localhost:3000", "http://localhost:3000"},
+		{"ipv6", "[::1]:5173", "http://[::1]:5173"},
+		{"wildcard v4 host", "0.0.0.0:8080", "http://127.0.0.1:8080"},
+		{"wildcard v6 host", "[::]:8080", "http://127.0.0.1:8080"},
+		{"empty host", ":8080", "http://127.0.0.1:8080"},
+		{"no port", "127.0.0.1", ""},
+		{"empty", "", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := localURL(c.addr)
+			if c.want == "" {
+				if got != nil {
+					t.Errorf("localURL(%q) = %q, want nil", c.addr, got)
+				}
+				return
+			}
+			if got == nil || got.String() != c.want {
+				t.Errorf("localURL(%q) = %v, want %q", c.addr, got, c.want)
+			}
+		})
+	}
+}
+
 func TestSuggestedRule(t *testing.T) {
 	allFree := func(string) bool { return true }
 	// unavailable returns a predicate that treats the given local addresses as
