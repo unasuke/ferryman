@@ -89,6 +89,17 @@ The GUI writes it for you; the CLI reads it.
   `localhost:8080` (remote). Enter a full `host:port` when you need a specific host,
   `[::1]:PORT`, or `0.0.0.0:PORT`.
 
+## Testing
+
+    go test ./forwarder/          # engine tests (cgo-free, run everywhere)
+    go test -race ./forwarder/    # recommended, but needs cgo + a C toolchain
+    go test ./cmd/ferryman-gui/   # GUI helper tests; needs gcc (cgo)
+
+The `forwarder` tests are self-contained: the end-to-end test stands up an
+in-process SSH server and bridges a `direct-tcpip` channel to a local echo
+server, so nothing outside loopback is touched. `-race` and the GUI tests need a
+C toolchain and are therefore skipped in cgo-free cross builds.
+
 ## Notes / next steps
 
 - **Load keys into ssh-agent** so no passphrase prompt is needed
