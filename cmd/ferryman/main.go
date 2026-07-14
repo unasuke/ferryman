@@ -1,4 +1,4 @@
-// Command ferryman-gui is the single-purpose GUI front-end (Fyne).
+// Command ferryman is the single-purpose GUI front-end (Fyne).
 // Requires Fyne v2.6+ (for fyne.Do) and a C toolchain to build.
 package main
 
