@@ -110,5 +110,8 @@ C toolchain and are therefore skipped in cgo-free cross builds.
   (above) to avoid the prompt entirely; the GUI uses a masked password field instead.
 - A menu-bar/tray-only variant is easy to add on top of the same engine
   (e.g. `fyne.io/systray`) if you'd rather not keep a window open.
-- Auto-detection was deliberately left out; if you ever want it, poll `ss -tlnH`
-  over the same SSH connection and call `Manager.UpsertRule` on new listeners.
+- **Port suggestions (GUI).** While connected, the GUI polls `ss` over the same SSH
+  connection and, when a *new* remote listener appears, offers to forward it — you
+  Add or Dismiss it; nothing is tunneled automatically. It suggests only ports that
+  show up after you connect and aren't already forwarded. Linux remotes only (needs
+  `ss`); it stays quiet if `ss` isn't available. The headless CLI never runs it.
