@@ -1,4 +1,4 @@
-// Command ferryman is the headless (CLI) front-end. It reads config.json,
+// Command ferryman-cli is the headless (CLI) front-end. It reads config.json,
 // connects, and keeps the enabled forwards up until interrupted.
 package main
 
