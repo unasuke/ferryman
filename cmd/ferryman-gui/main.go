@@ -30,6 +30,12 @@ type ui struct {
 	status   *widget.Label
 	rulesBox *fyne.Container
 	connBtn  *widget.Button
+
+	// Remote port suggestions. All fields below are touched only on Fyne's UI
+	// goroutine (via fyne.Do), so they need no locking.
+	suggestBox     *fyne.Container
+	pendingSuggest []forwarder.Suggestion
+	dismissed      map[string]bool
 }
 
 func main() {
@@ -42,6 +48,8 @@ func main() {
 	u := &ui{win: w, profile: profile, cfgPath: cfgPath}
 	u.status = widget.NewLabel("stopped")
 	u.rulesBox = container.NewVBox()
+	u.suggestBox = container.NewVBox()
+	u.dismissed = map[string]bool{}
 	w.SetContent(u.build())
 	u.rebuildRules()
 	w.Resize(fyne.NewSize(560, 480))
@@ -97,7 +105,7 @@ func (u *ui) build() fyne.CanvasObject {
 		add,
 	)
 
-	bottom := container.NewVBox(u.status, form)
+	bottom := container.NewVBox(u.suggestBox, u.status, form)
 	return container.NewBorder(top, bottom, nil, nil, container.NewVScroll(u.rulesBox))
 }
 
@@ -137,17 +145,105 @@ func (u *ui) rebuildRules() {
 	u.rulesBox.Refresh()
 }
 
+// rebuildSuggestions redraws the suggestion panel from pendingSuggest. It mirrors
+// rebuildRules by rebuilding the VBox each time. The "Suggestions" heading and a
+// separator are shown only when there is at least one pending suggestion, so an
+// empty panel takes no space.
+func (u *ui) rebuildSuggestions() {
+	u.suggestBox.Objects = nil
+	if len(u.pendingSuggest) > 0 {
+		u.suggestBox.Add(widget.NewSeparator())
+		u.suggestBox.Add(widget.NewLabelWithStyle("Suggestions", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+	}
+	for i := range u.pendingSuggest {
+		s := u.pendingSuggest[i]
+
+		lbl := widget.NewLabel(suggestionText(s))
+		add := widget.NewButton("Add", func() {
+			used := map[string]bool{}
+			for _, r := range u.profile.Rules {
+				used[r.LocalAddr] = true
+			}
+			free := func(addr string) bool { return !used[addr] && localAddrAvailable(addr) }
+			r := suggestedRule(s, free)
+			u.profile.Rules = append(u.profile.Rules, r)
+			if u.mgr != nil {
+				u.mgr.UpsertRule(r)
+			}
+			u.save()
+			u.removeSuggestion(s.Port)
+			u.rebuildRules()
+		})
+		dismiss := widget.NewButton("Dismiss", func() {
+			u.dismissed[s.Port] = true
+			u.removeSuggestion(s.Port)
+		})
+		buttons := container.NewHBox(add, dismiss)
+		u.suggestBox.Add(container.NewBorder(nil, nil, nil, buttons, lbl))
+	}
+	u.suggestBox.Refresh()
+}
+
+// removeSuggestion drops the suggestion for port from pendingSuggest and redraws.
+func (u *ui) removeSuggestion(port string) {
+	out := u.pendingSuggest[:0]
+	for _, s := range u.pendingSuggest {
+		if s.Port != port {
+			out = append(out, s)
+		}
+	}
+	u.pendingSuggest = out
+	u.rebuildSuggestions()
+}
+
+// onSuggestion handles a discovered remote listener from the engine. It ignores
+// ports the user dismissed, already-shown suggestions, and ports a rule already
+// forwards; otherwise it adds a suggestion row and posts an OS notification.
+func (u *ui) onSuggestion(s forwarder.Suggestion) {
+	fyne.Do(func() {
+		if u.dismissed[s.Port] {
+			return
+		}
+		for _, p := range u.pendingSuggest {
+			if p.Port == s.Port {
+				return
+			}
+		}
+		// A rule may have been added between the engine's poll and now; re-check.
+		for _, r := range u.profile.Rules {
+			if _, p, err := net.SplitHostPort(r.RemoteAddr); err == nil && p == s.Port {
+				return
+			}
+		}
+		u.pendingSuggest = append(u.pendingSuggest, s)
+		u.rebuildSuggestions()
+		fyne.CurrentApp().SendNotification(fyne.NewNotification("New remote port", suggestionText(s)))
+	})
+}
+
+// suggestionText is the one-line label shown for a suggestion (and its OS
+// notification body). The process name is included in parentheses when known.
+func suggestionText(s forwarder.Suggestion) string {
+	if s.Process != "" {
+		return fmt.Sprintf("remote %s (%s) listening — forward?", s.Port, s.Process)
+	}
+	return fmt.Sprintf("remote %s listening — forward?", s.Port)
+}
+
 func (u *ui) toggleConnection() {
 	if u.mgr != nil { // disconnect
 		u.cancel()
 		u.mgr = nil
 		u.connBtn.SetText("Connect")
 		u.setStatus("stopped")
+		u.pendingSuggest = nil // clear suggestions; keep dismissed for the session
+		u.rebuildSuggestions()
 		return
 	}
 	u.save()
 	m := forwarder.New(forwarder.NewDialer(u.profile, u.passphrase, u.trust))
 	m.SetRules(u.profile.Rules)
+	m.EnableDiscovery(true) // suggest new remote listen ports while connected
 
 	ctx, cancel := context.WithCancel(context.Background())
 	u.mgr, u.cancel = m, cancel
@@ -156,6 +252,11 @@ func (u *ui) toggleConnection() {
 	go func() {
 		for e := range m.Events() {
 			u.onEvent(e)
+		}
+	}()
+	go func() {
+		for s := range m.Suggestions() {
+			u.onSuggestion(s)
 		}
 	}()
 	go m.Run(ctx)
@@ -224,4 +325,42 @@ func withDefaultHost(input, defaultHost string) string {
 		return net.JoinHostPort(defaultHost, s)
 	}
 	return s
+}
+
+// suggestedRule builds the forward to create from a discovered remote listener.
+// The remote keeps the same port (resolved remotely as localhost:PORT); the
+// local port defaults to the same number but is bumped to the next port that
+// free reports usable, so accepting a suggestion neither overwrites an existing
+// rule (UpsertRule is keyed by LocalAddr) nor collides with a host port already
+// taken by another process. free is given each candidate "127.0.0.1:PORT" and
+// reports whether it is unused by a rule and bindable on the host. If no port up
+// to 65535 is free, the same-port candidate is kept and the engine will surface
+// the bind error. Name defaults to the remote process name (empty when ss could
+// not report one).
+func suggestedRule(s forwarder.Suggestion, free func(localAddr string) bool) forwarder.Rule {
+	remote := net.JoinHostPort("localhost", s.Port)
+	local := net.JoinHostPort("127.0.0.1", s.Port)
+	if n, err := strconv.Atoi(s.Port); err == nil {
+		for p := n; p <= 65535; p++ {
+			cand := net.JoinHostPort("127.0.0.1", strconv.Itoa(p))
+			if free(cand) {
+				local = cand
+				break
+			}
+		}
+	}
+	return forwarder.Rule{Name: s.Process, LocalAddr: local, RemoteAddr: remote, Enabled: true}
+}
+
+// localAddrAvailable reports whether addr can be bound right now, so a suggested
+// local port skips ports held by other host processes (not just ferryman rules).
+// There is a small TOCTOU window before the engine binds it for real; the worst
+// case is the pre-existing bind error, which this makes far less likely.
+func localAddrAvailable(addr string) bool {
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return false
+	}
+	ln.Close()
+	return true
 }
