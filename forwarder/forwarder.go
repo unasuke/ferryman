@@ -96,21 +96,24 @@ func (f *forward) close() {
 
 // Manager owns the SSH connection and the forward set.
 type Manager struct {
-	dialer Dialer
-	events chan Event
+	dialer      Dialer
+	events      chan Event
+	suggestions chan Suggestion
 
-	mu     sync.Mutex
-	client *ssh.Client
-	rules  []Rule
-	active map[string]*forward
+	mu        sync.Mutex
+	client    *ssh.Client
+	rules     []Rule
+	active    map[string]*forward
+	discovery bool
 }
 
 // New returns a Manager that will connect using dialer when Run is called.
 func New(dialer Dialer) *Manager {
 	return &Manager{
-		dialer: dialer,
-		events: make(chan Event, 64),
-		active: map[string]*forward{},
+		dialer:      dialer,
+		events:      make(chan Event, 64),
+		suggestions: make(chan Suggestion, 64),
+		active:      map[string]*forward{},
 	}
 }
 
@@ -122,6 +125,40 @@ func (m *Manager) emit(e Event) {
 	case m.events <- e:
 	default: // never block the engine on a slow consumer
 	}
+}
+
+// EnableDiscovery turns remote listen-port discovery on or off. It must be set
+// before Run to take effect on the next connection. Only front-ends that can act
+// on suggestions (the GUI) enable it; the CLI leaves it off so nothing runs ss
+// on the remote.
+func (m *Manager) EnableDiscovery(v bool) {
+	m.mu.Lock()
+	m.discovery = v
+	m.mu.Unlock()
+}
+
+// Suggestions returns the channel of newly-discovered remote listeners worth
+// forwarding. Drain it from the UI. Empty unless EnableDiscovery(true) was set.
+func (m *Manager) Suggestions() <-chan Suggestion { return m.suggestions }
+
+func (m *Manager) emitSuggestion(s Suggestion) {
+	select {
+	case m.suggestions <- s:
+	default: // never block the engine on a slow consumer
+	}
+}
+
+// hasRuleForRemotePort reports whether any rule already targets the given remote
+// port, so a listener already being forwarded is not suggested again.
+func (m *Manager) hasRuleForRemotePort(port string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, r := range m.rules {
+		if _, p, err := net.SplitHostPort(r.RemoteAddr); err == nil && p == port {
+			return true
+		}
+	}
+	return false
 }
 
 // Rules returns a copy of the current rule set.
@@ -192,12 +229,20 @@ func (m *Manager) Run(ctx context.Context) {
 
 		m.mu.Lock()
 		m.client = client
+		enabled := m.discovery
 		m.mu.Unlock()
 		m.emit(Event{State: StateRunning})
 		m.reconcile() // start enabled forwards on the fresh client
 
+		// Discover remote listeners for the life of this connection.
+		dctx, dcancel := context.WithCancel(ctx)
+		if enabled {
+			go m.discover(dctx, client)
+		}
+
 		err = keepalive(ctx, client)
 
+		dcancel() // stop discovery when the connection drops
 		m.stopAllForwards()
 		m.mu.Lock()
 		m.client = nil
