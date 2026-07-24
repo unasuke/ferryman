@@ -130,10 +130,11 @@ func (u *ui) rebuildRules() {
 		}
 
 		// Render the local address as a clickable link (opens http://LocalAddr in
-		// the browser); fall back to a plain label if the address will not parse.
+		// the browser; right-click copies the URL). Fall back to a plain label if
+		// the address will not parse.
 		var localWidget fyne.CanvasObject
 		if link := localURL(r.LocalAddr); link != nil {
-			localWidget = widget.NewHyperlink(r.LocalAddr, link)
+			localWidget = newTappableLink(r.LocalAddr, link, u.win)
 		} else {
 			localWidget = widget.NewLabel(r.LocalAddr)
 		}
@@ -364,6 +365,31 @@ func suggestedRule(s forwarder.Suggestion, free func(localAddr string) bool) for
 		}
 	}
 	return forwarder.Rule{Name: s.Process, LocalAddr: local, RemoteAddr: remote, Enabled: true}
+}
+
+// tappableLink is a Hyperlink that also offers a right-click "Copy" menu, which
+// puts the http:// URL form of the local address on the clipboard. Left-click
+// still opens the link in the browser as an ordinary Hyperlink does.
+type tappableLink struct {
+	widget.Hyperlink
+	win fyne.Window
+}
+
+func newTappableLink(text string, link *url.URL, win fyne.Window) *tappableLink {
+	l := &tappableLink{win: win}
+	l.ExtendBaseWidget(l)
+	l.Text = text
+	l.URL = link
+	return l
+}
+
+func (l *tappableLink) TappedSecondary(e *fyne.PointEvent) {
+	menu := fyne.NewMenu("",
+		fyne.NewMenuItem("Copy", func() {
+			l.win.Clipboard().SetContent(l.URL.String())
+		}),
+	)
+	widget.ShowPopUpMenuAtPosition(menu, l.win.Canvas(), e.AbsolutePosition)
 }
 
 // localURL turns a rule's local bind address into a browsable http URL so the
