@@ -15,9 +15,17 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+var version = "dev"
+
 func main() {
 	cfg := flag.String("config", forwarder.DefaultConfigPath(), "path to config.json")
+	showVer := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+
+	if *showVer {
+		fmt.Printf("ferryman-cli %s\n", version)
+		return
+	}
 
 	profile, err := forwarder.LoadProfile(*cfg)
 	if err != nil {

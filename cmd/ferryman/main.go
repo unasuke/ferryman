@@ -20,6 +20,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+var version = "dev"
+
 type ui struct {
 	win     fyne.Window
 	profile forwarder.Profile
@@ -106,7 +108,8 @@ func (u *ui) build() fyne.CanvasObject {
 		add,
 	)
 
-	bottom := container.NewVBox(u.suggestBox, u.status, form)
+	ver := widget.NewLabelWithStyle("ferryman "+version, fyne.TextAlignTrailing, fyne.TextStyle{Italic: true})
+	bottom := container.NewVBox(u.suggestBox, u.status, form, ver)
 	return container.NewBorder(top, bottom, nil, nil, container.NewVScroll(u.rulesBox))
 }
 
