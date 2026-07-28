@@ -62,6 +62,45 @@ func TestLocalURL(t *testing.T) {
 	}
 }
 
+func TestCapLatest(t *testing.T) {
+	// suggestions builds a list of suggestions with the given ports, so a case
+	// can be written as the ports going in and the ports expected to survive.
+	suggestions := func(ports ...string) []forwarder.Suggestion {
+		var out []forwarder.Suggestion
+		for _, p := range ports {
+			out = append(out, forwarder.Suggestion{Port: p})
+		}
+		return out
+	}
+
+	cases := []struct {
+		name string
+		list []forwarder.Suggestion
+		n    int
+		want []string // ports expected to remain, in order
+	}{
+		{"under the cap", suggestions("3000", "3001"), 3, []string{"3000", "3001"}},
+		{"exactly the cap", suggestions("3000", "3001", "3002"), 3, []string{"3000", "3001", "3002"}},
+		{"over the cap drops the oldest", suggestions("3000", "3001", "3002", "3003"), 3, []string{"3001", "3002", "3003"}},
+		{"far over the cap keeps the last n", suggestions("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), 3, []string{"8", "9", "10"}},
+		{"empty", suggestions(), 3, nil},
+		{"nil", nil, 3, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := capLatest(c.list, c.n)
+			if len(got) != len(c.want) {
+				t.Fatalf("capLatest(%v, %d) = %v, want ports %v", c.list, c.n, got, c.want)
+			}
+			for i, port := range c.want {
+				if got[i].Port != port {
+					t.Errorf("capLatest(%v, %d)[%d].Port = %q, want %q", c.list, c.n, i, got[i].Port, port)
+				}
+			}
+		})
+	}
+}
+
 func TestSuggestedRule(t *testing.T) {
 	allFree := func(string) bool { return true }
 	// unavailable returns a predicate that treats the given local addresses as

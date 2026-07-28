@@ -214,6 +214,21 @@ func (u *ui) removeSuggestion(port string) {
 	u.rebuildSuggestions()
 }
 
+// maxSuggestions caps how many remote-port suggestions the GUI shows at once;
+// only the latest maxSuggestions detections are kept, older ones are dropped.
+const maxSuggestions = 3
+
+// capLatest keeps only the last n elements of list, dropping the oldest ones.
+// n must be positive. The kept elements are copied into a fresh slice so the
+// dropped ones are not pinned by a shared backing array. Splitting this out of
+// onSuggestion keeps the cap testable without a UI.
+func capLatest(list []forwarder.Suggestion, n int) []forwarder.Suggestion {
+	if len(list) <= n {
+		return list
+	}
+	return append([]forwarder.Suggestion(nil), list[len(list)-n:]...)
+}
+
 // onSuggestion handles a discovered remote listener from the engine. It ignores
 // ports the user dismissed, already-shown suggestions, and ports a rule already
 // forwards; otherwise it adds a suggestion row and posts an OS notification.
@@ -233,7 +248,7 @@ func (u *ui) onSuggestion(s forwarder.Suggestion) {
 				return
 			}
 		}
-		u.pendingSuggest = append(u.pendingSuggest, s)
+		u.pendingSuggest = capLatest(append(u.pendingSuggest, s), maxSuggestions)
 		u.rebuildSuggestions()
 		fyne.CurrentApp().SendNotification(fyne.NewNotification("New remote port", suggestionText(s)))
 	})
