@@ -33,39 +33,102 @@ func TestParseSSEmpty(t *testing.T) {
 	}
 }
 
-func TestNewPorts(t *testing.T) {
-	noRules := func(string) bool { return false }
-
-	// Baseline: with empty prev, every current port is new (and unfiltered).
-	base := newPorts(nil, map[string]RemoteListener{
-		"3000": {Port: "3000", Process: "node"},
-		"6379": {Port: "6379", Process: "redis-server"},
-	}, noRules)
-	if ports := portsOf(base); !reflect.DeepEqual(ports, []string{"3000", "6379"}) {
-		t.Fatalf("baseline new ports = %v, want [3000 6379]", ports)
+// snapshotOf builds a snapshot from bare ports, so a case can be written as a
+// port list. Process names are irrelevant to the streak logic and left empty.
+func snapshotOf(ports ...string) map[string]RemoteListener {
+	out := make(map[string]RemoteListener, len(ports))
+	for _, p := range ports {
+		out[p] = RemoteListener{Port: p}
 	}
+	return out
+}
 
-	// Only ports absent from prev are suggested.
-	prev := map[string]RemoteListener{"3000": {Port: "3000"}}
-	cur := map[string]RemoteListener{
-		"3000": {Port: "3000"},
-		"5173": {Port: "5173", Process: "vite"},
-	}
-	got := newPorts(prev, cur, noRules)
-	want := []Suggestion{{Port: "5173", Process: "vite"}}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("newPorts = %+v, want %+v", got, want)
-	}
+func TestBumpStreaks(t *testing.T) {
+	// need is passed literally so the cases do not depend on requiredScans.
+	const need = 2
 
-	// A port already forwarded by a rule is filtered out.
-	hasRule := func(port string) bool { return port == "5173" }
-	if got := newPorts(prev, cur, hasRule); len(got) != 0 {
-		t.Fatalf("newPorts with rule = %+v, want empty", got)
+	tests := []struct {
+		name      string
+		streak    map[string]int
+		prev, cur []string
+		want      map[string]int
+	}{
+		{"baseline stays uncounted", nil, []string{"3000"}, []string{"3000"}, map[string]int{}},
+		{"new port starts a streak", nil, nil, []string{"3000"}, map[string]int{"3000": 1}},
+		{"candidate keeps counting", map[string]int{"3000": 1}, []string{"3000"}, []string{"3000"}, map[string]int{"3000": 2}},
+		{"ripe port clamps", map[string]int{"3000": 2}, []string{"3000"}, []string{"3000"}, map[string]int{"3000": 3}},
+		{"suggested port stays clamped", map[string]int{"3000": 3}, []string{"3000"}, []string{"3000"}, map[string]int{"3000": 3}},
+		{"vanished port is dropped", map[string]int{"9222": 1}, []string{"9222"}, nil, map[string]int{}},
+		{"reopened port restarts", nil, nil, []string{"9222"}, map[string]int{"9222": 1}},
+		{
+			"mixed baseline and candidate",
+			map[string]int{"3000": 1},
+			[]string{"3000", "6379"},
+			[]string{"3000", "6379"},
+			map[string]int{"3000": 2},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := bumpStreaks(tc.streak, snapshotOf(tc.prev...), snapshotOf(tc.cur...), need)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("bumpStreaks = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 
-// portsOf returns the sorted ports of a suggestion slice, since newPorts iterates
-// a map and does not guarantee order.
+func TestConfirmedPorts(t *testing.T) {
+	const need = 2
+
+	tests := []struct {
+		name   string
+		streak map[string]int
+		cur    []string
+		ruled  []string
+		want   []string
+	}{
+		{"below the threshold", map[string]int{"3000": 1}, []string{"3000"}, nil, []string{}},
+		{"just reached the threshold", map[string]int{"3000": 2}, []string{"3000"}, nil, []string{"3000"}},
+		{"already suggested", map[string]int{"3000": 3}, []string{"3000"}, nil, []string{}},
+		{"baseline port", nil, []string{"6379"}, nil, []string{}},
+		{"already forwarded", map[string]int{"5173": 2}, []string{"5173"}, []string{"5173"}, []string{}},
+		{
+			"multiple ripe ports",
+			map[string]int{"3000": 2, "5173": 2},
+			[]string{"3000", "5173"},
+			nil,
+			[]string{"3000", "5173"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			hasRule := func(port string) bool {
+				for _, r := range tc.ruled {
+					if r == port {
+						return true
+					}
+				}
+				return false
+			}
+			got := portsOf(confirmedPorts(tc.streak, snapshotOf(tc.cur...), need, hasRule))
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("confirmedPorts = %v, want %v", got, tc.want)
+			}
+		})
+	}
+
+	// The process name is carried over from the confirming scan.
+	cur := map[string]RemoteListener{"3000": {Port: "3000", Process: "node"}}
+	got := confirmedPorts(map[string]int{"3000": need}, cur, need, func(string) bool { return false })
+	want := []Suggestion{{Port: "3000", Process: "node"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("confirmedPorts = %+v, want %+v", got, want)
+	}
+}
+
+// portsOf returns the sorted ports of a suggestion slice, since confirmedPorts
+// iterates a map and does not guarantee order.
 func portsOf(ss []Suggestion) []string {
 	out := make([]string, len(ss))
 	for i, s := range ss {

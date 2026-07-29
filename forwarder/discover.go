@@ -10,8 +10,15 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// discoverInterval is how often the remote is polled for new listen ports.
-const discoverInterval = 2 * time.Second
+const (
+	// discoverInterval is how often the remote is polled for new listen ports.
+	discoverInterval = 1500 * time.Millisecond
+	// requiredScans is how many consecutive scans a newly-appeared port must
+	// stay listening before it is suggested. Ports that come and go within a
+	// single scan gap (a browser started by a Rails system spec, say) never
+	// reach it, so they are not suggested. 1 would suggest on first sight.
+	requiredScans = 2
+)
 
 // RemoteListener is a TCP port found listening on the remote host.
 type RemoteListener struct {
@@ -25,17 +32,22 @@ type Suggestion struct {
 	Process string
 }
 
-// discover polls the remote host for listening TCP ports and emits a Suggestion
-// for each newly-appeared port that no rule already forwards. The first probe is
-// a silent baseline: only ports that show up after the connection is established
-// are suggested. It runs for the life of one connection (ctx is cancelled on
-// drop). If probing fails (no ss, non-Linux remote, ...) it returns quietly
-// without emitting anything, so a working connection is never reported as broken.
+// discover polls the remote host for listening TCP ports and emits a
+// Suggestion for each newly-appeared port that stays listening for
+// requiredScans consecutive scans and that no rule already forwards. The
+// first probe is a silent baseline: only ports that show up after the
+// connection is established are considered, and a port must survive the
+// confirmation to be suggested, so a listener that comes and goes between
+// scans (a browser started by a Rails system spec, say) is never reported.
+// It runs for the life of one connection (ctx is cancelled on drop). If
+// probing fails (no ss, non-Linux remote, ...) it returns quietly without
+// emitting anything, so a working connection is never reported as broken.
 func (m *Manager) discover(ctx context.Context, client *ssh.Client) {
 	prev, err := snapshot(ctx, client)
 	if err != nil {
 		return // ss unavailable: give up on discovery for this connection
 	}
+	streak := map[string]int{}
 	t := time.NewTicker(discoverInterval)
 	defer t.Stop()
 	for {
@@ -47,7 +59,8 @@ func (m *Manager) discover(ctx context.Context, client *ssh.Client) {
 			if err != nil {
 				return
 			}
-			for _, s := range newPorts(prev, cur, m.hasRuleForRemotePort) {
+			streak = bumpStreaks(streak, prev, cur, requiredScans)
+			for _, s := range confirmedPorts(streak, cur, requiredScans, m.hasRuleForRemotePort) {
 				m.emitSuggestion(s)
 			}
 			prev = cur
@@ -68,13 +81,36 @@ func snapshot(ctx context.Context, client *ssh.Client) (map[string]RemoteListene
 	return out, nil
 }
 
-// newPorts returns a Suggestion for each listener present in cur but not in prev
-// whose port is not already forwarded by a rule (hasRule reports that). It is a
-// pure function so the diff/filter logic can be tested without running ss.
-func newPorts(prev, cur map[string]RemoteListener, hasRule func(port string) bool) []Suggestion {
+// bumpStreaks folds one scan into the per-port consecutive-detection counts.
+// A port in cur but not in prev starts a fresh streak at 1; a port continuing
+// from prev keeps counting only if it already had a streak, so ports that were
+// already listening at the baseline stay uncounted and are never suggested.
+// Ports gone from cur are dropped, so a port that closes and reopens starts
+// over. Counts stop at need+1: past that the exact value carries no meaning,
+// and clamping keeps "candidate" (1..need-1), "just ripened" (need) and
+// "already suggested" (need+1) readable.
+func bumpStreaks(streak map[string]int, prev, cur map[string]RemoteListener, need int) map[string]int {
+	next := make(map[string]int, len(cur))
+	for port := range cur {
+		if _, seen := prev[port]; !seen {
+			next[port] = 1
+			continue
+		}
+		if n := streak[port]; n > 0 {
+			next[port] = min(n, need) + 1
+		}
+	}
+	return next
+}
+
+// confirmedPorts returns a Suggestion for each listener whose streak has just
+// reached need, skipping ports a rule already forwards (hasRule reports that).
+// The comparison is exact so a long-lived port is suggested once, not on every
+// scan after it ripens.
+func confirmedPorts(streak map[string]int, cur map[string]RemoteListener, need int, hasRule func(port string) bool) []Suggestion {
 	var out []Suggestion
 	for port, l := range cur {
-		if _, seen := prev[port]; seen {
+		if streak[port] != need {
 			continue
 		}
 		if hasRule(port) {
