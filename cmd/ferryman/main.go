@@ -231,7 +231,9 @@ func capLatest(list []forwarder.Suggestion, n int) []forwarder.Suggestion {
 
 // onSuggestion handles a discovered remote listener from the engine. It ignores
 // ports the user dismissed, already-shown suggestions, and ports a rule already
-// forwards; otherwise it adds a suggestion row and posts an OS notification.
+// forwards; otherwise it adds a suggestion row. Suggestions stay in the window:
+// no OS notification is posted, so a busy remote cannot spam the notification
+// centre.
 func (u *ui) onSuggestion(s forwarder.Suggestion) {
 	fyne.Do(func() {
 		if u.dismissed[s.Port] {
@@ -250,12 +252,14 @@ func (u *ui) onSuggestion(s forwarder.Suggestion) {
 		}
 		u.pendingSuggest = capLatest(append(u.pendingSuggest, s), maxSuggestions)
 		u.rebuildSuggestions()
-		fyne.CurrentApp().SendNotification(fyne.NewNotification("New remote port", suggestionText(s)))
+		// Kept for reference: a busy remote made this spam the notification
+		// centre, so suggestions now stay in the window only.
+		// fyne.CurrentApp().SendNotification(fyne.NewNotification("New remote port", suggestionText(s)))
 	})
 }
 
-// suggestionText is the one-line label shown for a suggestion (and its OS
-// notification body). The process name is included in parentheses when known.
+// suggestionText is the one-line label shown for a suggestion. The process name
+// is included in parentheses when known.
 func suggestionText(s forwarder.Suggestion) string {
 	if s.Process != "" {
 		return fmt.Sprintf("remote %s (%s) listening — forward?", s.Port, s.Process)
