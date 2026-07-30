@@ -6,7 +6,7 @@ require (
 	fyne.io/fyne/v2 v2.6.1 // GUI. Requires v2.6+ for fyne.Do
 	github.com/Microsoft/go-winio v0.6.2 // Windows agent named pipe
 	github.com/kevinburke/ssh_config v1.2.0
-	golang.org/x/crypto v0.33.0
+	golang.org/x/crypto v0.54.0
 )
 
 require (
@@ -38,8 +38,8 @@ require (
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/yuin/goldmark v1.7.8 // indirect
 	golang.org/x/image v0.24.0 // indirect
-	golang.org/x/net v0.35.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
