@@ -22,9 +22,11 @@ jobs:
           go-version-file: go.mod
           cache: true
       # Fyne GUI (cmd/ferryman) の cgo ビルドに必要なネイティブ依存
+      # go-gl/glfw v3.4 はタグ指定なしだと X11 と Wayland の両方をコンパイルするため
+      # xorg-dev に加えて Wayland 側 (libwayland-dev, libxkbcommon-dev) も必要
       - run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-dev xorg-dev
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev
       - run: |
           unformatted="$(gofmt -l .)"
           if [ -n "$unformatted" ]; then

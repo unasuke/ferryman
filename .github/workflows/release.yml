@@ -37,10 +37,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      # go-gl/glfw v3.4 はタグ指定なしだと X11 と Wayland の両方をコンパイルするため
+      # xorg-dev に加えて Wayland 側 (libwayland-dev, libxkbcommon-dev) も必要
       - if: matrix.goos == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-dev xorg-dev
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev
       # GUI (cgo, native). Windows は windowsgui サブシステムでコンソール窓を抑制
       # 出力名は Release アセット名そのもの（ferryman_<tag>_<goos>_<goarch>[.exe]）
       - shell: bash
