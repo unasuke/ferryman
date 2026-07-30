@@ -6,3 +6,6 @@
 /ferryman-gui
 /ferryman-gui.exe
 *.exe
+
+# Scratch space
+/tmp/
