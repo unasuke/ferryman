@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.2.3 / v1.2.3-rc.1)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# 同一 tag のリリースが二重に走らないようにする（先行を優先し後発を待たせる）
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - if: matrix.goos == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev
+      # GUI (cgo, native). Windows は windowsgui サブシステムでコンソール窓を抑制
+      # 出力名は Release アセット名そのもの（ferryman_<tag>_<goos>_<goarch>[.exe]）
+      - shell: bash
+        env:
+          VERSION: ${{ inputs.tag }}
+          SUFFIX: ${{ inputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}
+        run: |
+          mkdir -p dist
+          ext=""; ldflags="-X main.version=${VERSION}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            ext=".exe"; ldflags="-H windowsgui ${ldflags}"
+          fi
+          go build -ldflags "${ldflags}" -o "dist/ferryman_${SUFFIX}${ext}" ./cmd/ferryman
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ferryman-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # tag と Release の作成に必要
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      # tag 形式を検証（v1.2.3 / v1.2.3-rc.1 等）し、既存 tag/Release を明確に弾く
+      - run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid tag: $TAG (expected vMAJOR.MINOR.PATCH[-prerelease])"; exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists"; exit 1
+          fi
+          if gh api "repos/${GH_REPO}/git/ref/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists"; exit 1
+          fi
+      # ビルド時点でアセット名が付いているので、全 artifact を一つのディレクトリに畳むだけでよい
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: assets
+          merge-multiple: true
+      - run: ls -l assets
+      # prerelease 判定（tag に "-" があれば prerelease）
+      - run: |
+          pre=""; [[ "$TAG" == *-* ]] && pre="--prerelease"
+          gh release create "$TAG" assets/* \
+            --target "$GITHUB_SHA" \
+            --title "$TAG" \
+            --generate-notes $pre
