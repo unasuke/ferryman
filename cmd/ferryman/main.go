@@ -141,11 +141,16 @@ func (u *ui) rebuildRules() {
 		} else {
 			localWidget = widget.NewLabel(r.LocalAddr)
 		}
+		// The arrow gets its own label. Fyne resolves U+2192 to its bundled symbol
+		// font (InterSymbols), which carries no space glyph, so a space sharing the
+		// arrow's shaping run is drawn as U+FFFD. Keeping the arrow alone in its
+		// label keeps every space in a face that has one; HBox supplies the gap.
 		row := container.NewHBox(
 			widget.NewLabel(r.Name),
 			widget.NewLabel("local"),
 			localWidget,
-			widget.NewLabel(fmt.Sprintf("→  remote %s", r.RemoteAddr)),
+			widget.NewLabel("→"),
+			widget.NewLabel(fmt.Sprintf("remote %s", r.RemoteAddr)),
 		)
 
 		del := widget.NewButton("✕", func() {
