@@ -55,7 +55,9 @@ jobs:
           if [ "${{ matrix.goos }}" = "windows" ]; then
             ext=".exe"; ldflags="-H windowsgui ${ldflags}"
           fi
-          go build -ldflags "${ldflags}" -o "dist/ferryman_${SUFFIX}${ext}" ./cmd/ferryman
+          # -v はコンパイル中のパッケージ名を流す。cgo で glfw をビルドする
+          # Windows は無出力の時間が長く、ログ上で停止と区別が付かないため
+          go build -v -ldflags "${ldflags}" -o "dist/ferryman_${SUFFIX}${ext}" ./cmd/ferryman
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ferryman-${{ matrix.goos }}-${{ matrix.goarch }}
