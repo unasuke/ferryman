@@ -36,6 +36,24 @@ crossing, `local_addr → remote_addr`.
     cmd/ferryman/       Fyne GUI front-end (needs a C toolchain; Fyne v2.6+)
     cmd/ferryman-cli/   headless CLI front-end (cgo-free)
 
+## Install
+
+Each release ships one asset per OS (see [Releases](../../releases)):
+
+    ferryman_<tag>_darwin_arm64.app.zip   macOS (Apple Silicon) — a .app bundle
+    ferryman_<tag>_linux_amd64
+    ferryman_<tag>_windows_amd64.exe
+
+**macOS.** Unzip and move `Ferryman.app` to `/Applications`. The bundle is only
+*ad-hoc* signed — there is no Apple Developer ID behind this project, so it is not
+notarized either — and Gatekeeper refuses a downloaded copy until the quarantine
+attribute is cleared:
+
+    xattr -dr com.apple.quarantine /Applications/Ferryman.app
+
+Or, without the terminal: try to open it, then allow it under
+System Settings → Privacy & Security → "Open Anyway".
+
 ## Build
 
 First fetch deps:
@@ -46,9 +64,16 @@ GUI — the primary binary `ferryman` (Fyne needs cgo + a C toolchain + OpenGL �
 build it natively on each OS):
 
     go build -o ferryman ./cmd/ferryman
-    # or, for a proper .app / .exe bundle:
-    go install fyne.io/fyne/v2/cmd/fyne@latest
-    fyne package --src ./cmd/ferryman
+    # or, for a proper .app / .exe bundle (icon: cmd/ferryman/Icon.png):
+    go install fyne.io/tools/cmd/fyne@latest
+    fyne package --src ./cmd/ferryman --name Ferryman --app-id com.unasuke.ferryman
+
+On macOS, `script/package-macos.sh` builds exactly what a release ships — the
+`.app`, ad-hoc signed, zipped with `ditto`. The release workflow runs this same
+script, so you can check a bundle locally before tagging:
+
+    script/package-macos.sh v1.2.3     # -> dist/ferryman_v1.2.3_darwin_arm64.app.zip
+    open build/macos/Ferryman.app      # the bundle it zipped
 
 macOS needs the Xcode command-line tools; Windows needs a gcc (e.g. MSYS2/mingw-w64).
 
