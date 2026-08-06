@@ -6,6 +6,9 @@
 /ferryman-gui
 /ferryman-gui.exe
 *.exe
+/Ferryman.app/
+/dist/
+/build/
 
 # Scratch space
 /tmp/
