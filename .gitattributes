@@ -1,0 +1,4 @@
+# script/*.sh は Windows でも bash で実行される（release ワークフローの Windows
+# ジョブ）。ランナーは core.autocrlf=true で checkout するので、明示しないと CRLF
+# になり bash が $'\r' で落ちる
+*.sh text eol=lf
