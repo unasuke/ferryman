@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"net"
 	"net/url"
@@ -21,6 +22,14 @@ import (
 )
 
 var version = "dev"
+
+// The same image the macOS bundle is built from, carried inside the binary so
+// the window (and with it the taskbar entry) has an icon on Windows and Linux,
+// where there is no bundle to hold one. macOS ignores it — GLFW reports icons
+// as unavailable on Cocoa and the .app's icns is what Finder and the Dock read.
+//
+//go:embed Icon.png
+var iconPNG []byte
 
 type ui struct {
 	win     fyne.Window
@@ -43,6 +52,8 @@ type ui struct {
 
 func main() {
 	a := app.NewWithID("com.unasuke.ferryman")
+	// Before NewWindow: a window takes its icon from the app at creation time.
+	a.SetIcon(fyne.NewStaticResource("Icon.png", iconPNG))
 	w := a.NewWindow("Ferryman")
 
 	cfgPath := forwarder.DefaultConfigPath()
