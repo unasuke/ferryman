@@ -9,6 +9,8 @@
 /Ferryman.app/
 /dist/
 /build/
+# script/package-windows.sh がアイコンを埋めるために置く Windows リソース
+/cmd/ferryman/*.syso
 
 # Scratch space
 /tmp/

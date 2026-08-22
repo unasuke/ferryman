@@ -64,9 +64,10 @@ GUI — the primary binary `ferryman` (Fyne needs cgo + a C toolchain + OpenGL �
 build it natively on each OS):
 
     go build -o ferryman ./cmd/ferryman
-    # or, for a proper .app / .exe bundle (icon: cmd/ferryman/Icon.png):
-    go install fyne.io/tools/cmd/fyne@latest
-    fyne package --src ./cmd/ferryman --name Ferryman --app-id com.unasuke.ferryman
+
+That is a runnable GUI, window icon included. The releases are built by a
+packaging script per OS instead, both of which take the icon from
+`cmd/ferryman/Icon.png`.
 
 On macOS, `script/package-macos.sh` builds exactly what a release ships — the
 `.app`, ad-hoc signed, zipped with `ditto`. The release workflow runs this same
@@ -77,14 +78,21 @@ script, so you can check a bundle locally before tagging:
 
 macOS needs the Xcode command-line tools; Windows needs a gcc (e.g. MSYS2/mingw-w64).
 
-On Windows a plain `go build` produces a console-subsystem binary, so an extra
-command-prompt window opens alongside the GUI. Build `ferryman.exe` with the
-`windowsgui` subsystem to suppress it:
+On Windows, `script/package-windows.sh` is the same pairing — it builds what a
+release ships, and the workflow's Windows leg runs it (needs bash, e.g. Git Bash):
+
+    script/package-windows.sh v1.2.3   # -> dist/ferryman_v1.2.3_windows_amd64.exe
+
+Two things it does that a plain `go build` does not. It links with the
+`windowsgui` subsystem, without which a command-prompt window opens alongside
+the GUI:
 
     go build -ldflags "-H windowsgui" -o ferryman.exe ./cmd/ferryman
 
-`fyne package` already targets the GUI subsystem, so this flag is only needed
-for a bare `go build` on Windows.
+And it embeds the icon as a Windows resource, which is what Explorer and a
+pinned taskbar shortcut read off the file itself. (The window and its taskbar
+button get their icon from the binary at run time on Windows and Linux, so a
+bare `go build` is only missing the icon on the `.exe` in Explorer.)
 
 CLI — `ferryman-cli` (cgo-free, cross-compiles trivially):
 

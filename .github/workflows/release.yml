@@ -43,28 +43,30 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev
-      # GUI (cgo, native). Windows は windowsgui サブシステムでコンソール窓を抑制
-      # 出力名は Release アセット名そのもの（ferryman_<tag>_<goos>_<goarch>[.exe]）
-      - if: matrix.goos != 'darwin'
+      # GUI (cgo, native)
+      # 出力名は Release アセット名そのもの（ferryman_<tag>_<goos>_<goarch>）
+      - if: matrix.goos == 'linux'
         shell: bash
         env:
-          VERSION: ${{ inputs.tag }}
           SUFFIX: ${{ inputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}
+          VERSION: ${{ inputs.tag }}
         run: |
           mkdir -p dist
-          ext=""; ldflags="-X main.version=${VERSION}"
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            ext=".exe"; ldflags="-H windowsgui ${ldflags}"
-          fi
-          # -v はコンパイル中のパッケージ名を流す。cgo で glfw をビルドする
-          # Windows は無出力の時間が長く、ログ上で停止と区別が付かないため
-          go build -v -ldflags "${ldflags}" -o "dist/ferryman_${SUFFIX}${ext}" ./cmd/ferryman
-      # macOS の配布物は .app バンドル一つ（dist/ferryman_<tag>_darwin_<arch>.app.zip）。
-      # ビルドから署名まで手元でも再現できるようスクリプトに切り出してある
+          # -v はコンパイル中のパッケージ名を流す。cgo で glfw をビルドする間は
+          # 無出力の時間が長く、ログ上で停止と区別が付かないため
+          go build -v -ldflags "-X main.version=${VERSION}" -o "dist/ferryman_${SUFFIX}" ./cmd/ferryman
+      # macOS と Windows の配布物はスクリプト経由。アイコンやサブシステムといった
+      # 素の go build にない手順が要るので、手元でも同じものを作れるようにしてある
+      # （darwin: .app バンドルの zip、windows: アイコン付き .exe）
       - if: matrix.goos == 'darwin'
         env:
           VERSION: ${{ inputs.tag }}
         run: script/package-macos.sh "$VERSION"
+      - if: matrix.goos == 'windows'
+        shell: bash
+        env:
+          VERSION: ${{ inputs.tag }}
+        run: script/package-windows.sh "$VERSION"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ferryman-${{ matrix.goos }}-${{ matrix.goarch }}
