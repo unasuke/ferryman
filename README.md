@@ -34,6 +34,7 @@ crossing, `local_addr → remote_addr`.
       agent_windows.go    agent via \\.\pipe\openssh-ssh-agent (build tag: windows)
       store.go            config.json load/save
     cmd/ferryman/       Fyne GUI front-end (needs a C toolchain; Fyne v2.6+)
+      NOTICES.txt       embedded license text, generated (see License)
     cmd/ferryman-cli/   headless CLI front-end (cgo-free)
 
 ## Install
@@ -133,6 +134,28 @@ The `forwarder` tests are self-contained: the end-to-end test stands up an
 in-process SSH server and bridges a `direct-tcpip` channel to a local echo
 server, so nothing outside loopback is touched. `-race` and the GUI tests need a
 C toolchain and are therefore skipped in cgo-free cross builds.
+
+## License
+
+MIT — see [LICENSE.txt](LICENSE.txt).
+
+The GUI ships as one self-contained executable, so there is no accompanying
+directory for the notices its dependencies require. It carries them instead:
+**Menu → Licenses** shows the full text of every Go module linked into the
+binary (all MIT / BSD / Apache-2.0 — no copyleft) plus the fonts Fyne embeds in
+its default theme (Noto Sans and Inter under the SIL OFL 1.1, DejaVu Sans Mono
+under the Bitstream Vera license, EmojiOne Color under MIT).
+
+That text is `cmd/ferryman/NOTICES.txt`, generated — never edited by hand:
+
+    script/gen-licenses.sh
+
+It walks the module graph for all three release targets (the dependency set
+differs per GOOS) and concatenates each module's own license file. Run it after
+a dependency bump and commit the result; CI regenerates and fails on a diff.
+
+`ferryman-cli` is not a release asset — it is built from source, where
+`LICENSE.txt` and `go.mod` are right there — so it has no such screen.
 
 ## Notes / next steps
 
