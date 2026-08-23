@@ -2,3 +2,8 @@
 # ジョブ）。ランナーは core.autocrlf=true で checkout するので、明示しないと CRLF
 # になり bash が $'\r' で落ちる
 *.sh text eol=lf
+
+# cmd/ferryman/NOTICES.txt は go:embed でバイナリに入る。Windows で
+# core.autocrlf=true のまま checkout されると CRLF ごと埋め込まれ、表示に ^M が
+# 混ざるので LF に固定する。生成は script/gen-licenses.sh
+cmd/ferryman/NOTICES.txt text eol=lf
