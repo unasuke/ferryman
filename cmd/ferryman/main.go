@@ -43,6 +43,9 @@ type ui struct {
 	rulesBox *fyne.Container
 	connBtn  *widget.Button
 
+	// The licenses window, while it is open (see showLicenses).
+	licenseWin fyne.Window
+
 	// Remote port suggestions. All fields below are touched only on Fyne's UI
 	// goroutine (via fyne.Do), so they need no locking.
 	suggestBox     *fyne.Container
@@ -65,6 +68,7 @@ func main() {
 	u.suggestBox = container.NewVBox()
 	u.dismissed = map[string]bool{}
 	w.SetContent(u.build())
+	w.SetMainMenu(u.mainMenu())
 	u.rebuildRules()
 	w.Resize(fyne.NewSize(560, 480))
 	w.ShowAndRun()
