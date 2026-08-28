@@ -3,20 +3,19 @@ module github.com/unasuke/ferryman
 go 1.26
 
 require (
-	fyne.io/fyne/v2 v2.8.0 // GUI. Requires v2.6+ for fyne.Do
+	fyne.io/fyne/v2 v2.8.1 // GUI. Requires v2.6+ for fyne.Do
 	github.com/Microsoft/go-winio v0.6.2 // Windows agent named pipe
 	github.com/kevinburke/ssh_config v1.6.0
 	golang.org/x/crypto v0.55.0
 )
 
 require (
-	fyne.io/systray v1.12.2 // indirect
+	fyne.io/systray v1.12.3-0.20260810170012-af4e8e793ec4 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/FyshOS/fancyfs v0.0.1 // indirect
 	github.com/anthonynsimon/bild v0.14.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/fredbi/uri v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fyne-io/gl-js v0.2.1-0.20260315212741-029c47fd27e8 // indirect
 	github.com/fyne-io/glfw-js v0.4.0 // indirect
