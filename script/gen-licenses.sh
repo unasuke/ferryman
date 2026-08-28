@@ -8,8 +8,9 @@
 # 置ける「添付ドキュメント」が無い。MIT / BSD / Apache-2.0 はいずれもバイナリ配布時に
 # 著作権表示と本文を伴わせることを条件にしているため、バイナリ自身が抱えている。
 #
-# 依存が変わったら実行して差分をコミットすること。CI (.github/workflows/ci.yml) が
-# 生成物と突き合わせるので、忘れると落ちる。
+# 手で実行する必要はふつう無い。CI (.github/workflows/ci.yml) の notices ジョブが
+# PR ごとに走らせ、差分が出たらそのままブランチにコミットを積む。fork からの PR だけは
+# トークンが read-only で push できないので、そこでは従来どおり落ちる。
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

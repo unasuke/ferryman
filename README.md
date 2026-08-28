@@ -151,8 +151,13 @@ That text is `cmd/ferryman/NOTICES.txt`, generated — never edited by hand:
     script/gen-licenses.sh
 
 It walks the module graph for all three release targets (the dependency set
-differs per GOOS) and concatenates each module's own license file. Run it after
-a dependency bump and commit the result; CI regenerates and fails on a diff.
+differs per GOOS) and concatenates each module's own license file.
+
+You rarely need to run it. CI regenerates the file on every pull request and, if
+it changed, commits the result to the branch as `github-actions[bot]` — so a
+dependency bump carries its own notices without anyone touching them. Only a
+pull request from a fork is left to do it by hand: those get a read-only token,
+so CI fails there with the same instruction instead.
 
 `ferryman-cli` is not a release asset — it is built from source, where
 `LICENSE.txt` and `go.mod` are right there — so it has no such screen.
