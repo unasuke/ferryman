@@ -1,12 +1,12 @@
 module github.com/unasuke/ferryman
 
-go 1.26
+go 1.26.0
 
 require (
 	fyne.io/fyne/v2 v2.8.1 // GUI. Requires v2.6+ for fyne.Do
 	github.com/Microsoft/go-winio v0.6.2 // Windows agent named pipe
 	github.com/kevinburke/ssh_config v1.6.0
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 )
 
 require (
