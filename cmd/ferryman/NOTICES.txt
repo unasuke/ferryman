@@ -36,7 +36,7 @@ Go modules linked into the binary
 --------------------------------------------------------------------------
 
 --------------------------------------------------------------------------
-fyne.io/fyne/v2 v2.8.1
+fyne.io/fyne/v2 v2.8.2
 --------------------------------------------------------------------------
 
 BSD 3-Clause License
@@ -476,7 +476,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------
-github.com/fyne-io/oksvg v0.2.0
+github.com/fyne-io/oksvg v0.2.1-0.20260918172519-a9af55fa95d9
 --------------------------------------------------------------------------
 
 BSD 3-Clause License
@@ -535,7 +535,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 --------------------------------------------------------------------------
-github.com/go-gl/glfw/v3.4/glfw v0.1.0-pre.1.0.20260707082822-2a407d02d01a
+github.com/go-gl/glfw/v3.4/glfw v0.1.0-pre.2
 --------------------------------------------------------------------------
 
 Copyright (c) 2012 The glfw3-go Authors. All rights reserved.
@@ -627,7 +627,7 @@ For more information, please refer to <https://unlicense.org/>
 ---
 
 --------------------------------------------------------------------------
-github.com/go-text/typesetting v0.3.4
+github.com/go-text/typesetting v0.3.5
 --------------------------------------------------------------------------
 
 This project is provided under the terms of the UNLICENSE or
