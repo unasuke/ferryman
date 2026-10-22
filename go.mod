@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	fyne.io/fyne/v2 v2.8.2 // GUI. Requires v2.6+ for fyne.Do
-	github.com/Microsoft/go-winio v0.6.3 // Windows agent named pipe
+	github.com/Microsoft/go-winio v0.6.4 // Windows agent named pipe
 	github.com/kevinburke/ssh_config v1.6.0
 	golang.org/x/crypto v0.58.0
 )
