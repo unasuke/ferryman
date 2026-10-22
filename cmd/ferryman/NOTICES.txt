@@ -333,7 +333,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 --------------------------------------------------------------------------
-github.com/Microsoft/go-winio v0.6.3
+github.com/Microsoft/go-winio v0.6.4
 --------------------------------------------------------------------------
 
 The MIT License (MIT)
